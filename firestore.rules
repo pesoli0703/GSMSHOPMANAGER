@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /shops/{shopId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    function userInShop(shopId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shopId == shopId;
+    }
+
+    match /shops/{shopId}/engineers/{engineerId} {
+      allow read, list: if request.auth != null && userInShop(shopId);
+      allow create, update, delete: if request.auth != null && userInShop(shopId);
+    }
+
+    match /shops/{shopId}/products/{productId} {
+      allow read, list: if request.auth != null && userInShop(shopId);
+      allow create, update, delete: if request.auth != null && userInShop(shopId);
+    }
+
+    match /shops/{shopId}/transactions/{txId} {
+      allow read, list: if request.auth != null && userInShop(shopId);
+      allow create: if request.auth != null && userInShop(shopId);
+      allow update, delete: if false;
+    }
+
+    match /shops/{shopId}/payments/{paymentId} {
+      allow read, list: if request.auth != null && userInShop(shopId);
+      allow create: if request.auth != null && userInShop(shopId);
+      allow update, delete: if false;
+    }
+
+    match /shops/{shopId}/meta/{docId} {
+      allow read, write: if request.auth != null && userInShop(shopId);
+    }
+  }
+}
