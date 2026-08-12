@@ -1,5 +1,5 @@
+import { db } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 
 export async function createProduct(shopId: string, product: any) {
   const col = collection(db, `shops/${shopId}/products`);

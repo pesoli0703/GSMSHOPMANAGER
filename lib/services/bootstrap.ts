@@ -1,4 +1,4 @@
-import { db } from "../lib/firebase";
+import { db } from "../firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export async function ensureDefaultShopForUser(uid: string, email?: string) {
