@@ -1,7 +1,7 @@
 import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import { useEffect } from 'react';
-import { auth } from '../lib/firebase';
+import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ensureDefaultShopForUser } from '../lib/services/bootstrap';
 
