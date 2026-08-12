@@ -1,89 +1,64 @@
-import { useEffect, useState } from "react";
-import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { useEffect, useState } from 'react';
+import Navbar from '../components/Navbar';
+import { auth } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
-export default function DashboardPage(){
-  const shopId = process.env.NEXT_PUBLIC_DEFAULT_SHOP_ID!;
-  const [transactionsCountToday, setTransactionsCountToday] = useState(0);
-  const [todayCredit, setTodayCredit] = useState(0);
-  const [todayPayments, setTodayPayments] = useState(0);
-  const [totalOutstanding, setTotalOutstanding] = useState(0);
-  const [peopleOwing, setPeopleOwing] = useState<any[]>([]);
+export default function Dashboard() {
+  const [user, setUser] = useState<any>(null);
 
-  useEffect(()=>{
-    async function load(){
-      const txCol = collection(db, `shops/${shopId}/transactions`);
-      const txSnap = await getDocs(txCol);
-      const paySnap = await getDocs(collection(db, `shops/${shopId}/payments`));
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
 
-      const now = new Date();
-      const todayStr = now.toDateString();
-
-      let txToday = 0;
-      let todayCred = 0;
-      let todayPay = 0;
-      let totalTx = 0;
-      let totalPay = 0;
-
-      const byEngineer: Record<string, {name?:string, owe:number}> = {};
-
-      txSnap.forEach(d=>{
-        const t: any = d.data();
-        const createdAt = t.createdAt?.toDate ? t.createdAt.toDate() : (t.createdAt && t.createdAt.seconds ? new Date(t.createdAt.seconds*1000) : null);
-        if (createdAt && createdAt.toDateString()===todayStr) txToday++;
-        if (t.amountPaid==0 && createdAt && createdAt.toDateString()===todayStr) todayCred += Number(t.total||0);
-        totalTx += Number(t.total||0);
-        const eng = t.engineerId || 'unknown';
-        if (!byEngineer[eng]) byEngineer[eng] = { name: t.engineerId, owe: 0 };
-        byEngineer[eng].owe += Number(t.total||0);
-      });
-
-      paySnap.forEach(d=>{
-        const p: any = d.data();
-        const createdAt = p.createdAt?.toDate ? p.createdAt.toDate() : (p.createdAt && p.createdAt.seconds ? new Date(p.createdAt.seconds*1000) : null);
-        if (createdAt && createdAt.toDateString()===todayStr) todayPay += Number(p.amount||0);
-        totalPay += Number(p.amount||0);
-        const eng = p.engineerId || 'unknown';
-        if (!byEngineer[eng]) byEngineer[eng] = { name: eng, owe: 0 };
-        byEngineer[eng].owe -= Number(p.amount||0);
-      });
-
-      // assemble people owing
-      const oweList = Object.keys(byEngineer).map(k=>({ engineerId: k, owe: byEngineer[k].owe }));
-      const people = oweList.filter(x=>x.owe>0).slice(0,10);
-
-      setTransactionsCountToday(txToday);
-      setTodayCredit(todayCred);
-      setTodayPayments(todayPay);
-      setTotalOutstanding(Math.max(0, totalTx - totalPay));
-      setPeopleOwing(people);
-    }
-    load();
-  }, [shopId]);
+  const totals = {
+    outstanding: 0,
+    todaysTransactions: 0,
+    todaysCredit: 0,
+    todaysPayments: 0,
+  };
 
   return (
-    <div className="p-4 pb-20">
-      <h1 className="text-xl font-semibold mb-4">Dashboard</h1>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="p-3 bg-white rounded shadow">Total outstanding<div className="text-2xl font-bold">₦{totalOutstanding.toLocaleString()}</div></div>
-        <div className="p-3 bg-white rounded shadow">Today's transactions<div className="text-2xl font-bold">{transactionsCountToday}</div></div>
-        <div className="p-3 bg-white rounded shadow">Today's credit<div className="text-2xl font-bold">₦{todayCredit.toLocaleString()}</div></div>
-        <div className="p-3 bg-white rounded shadow">Today's payments<div className="text-2xl font-bold">₦{todayPayments.toLocaleString()}</div></div>
-      </div>
+    <>
+      <Navbar />
+      <main style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 32, fontWeight: 800 }}>Dashboard</h1>
 
-      <div className="mb-4">
-        <h2 className="font-medium mb-2">People owing</h2>
-        <div className="space-y-2">
-          {peopleOwing.length===0 && <div className="text-sm text-gray-500">No outstanding balances</div>}
-          {peopleOwing.map(p => (
-            <div key={p.engineerId} className="p-3 border rounded flex justify-between items-center">
-              <div>{p.engineerId}</div>
-              <div className="font-medium">₦{(p.owe||0).toLocaleString()}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+        {!user && (
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#fff6', border: '1px solid #eee' }}>
+            <strong>Please sign in</strong> to see live shop data.
+          </div>
+        )}
 
-    </div>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, marginTop: 20 }}>
+          <div style={{ padding: 16, borderRadius: 8, border: '1px solid #eee' }}>
+            <div style={{ color: '#666' }}>Total outstanding</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>₦{totals.outstanding}</div>
+          </div>
+
+          <div style={{ padding: 16, borderRadius: 8, border: '1px solid #eee' }}>
+            <div style={{ color: '#666' }}>Today's transactions</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{totals.todaysTransactions}</div>
+          </div>
+
+          <div style={{ padding: 16, borderRadius: 8, border: '1px solid #eee' }}>
+            <div style={{ color: '#666' }}>Today's credit</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>₦{totals.todaysCredit}</div>
+          </div>
+
+          <div style={{ padding: 16, borderRadius: 8, border: '1px solid #eee' }}>
+            <div style={{ color: '#666' }}>Today's payments</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>₦{totals.todaysPayments}</div>
+          </div>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 22, marginBottom: 8 }}>People owing</h2>
+          <div style={{ padding: 12, borderRadius: 8, border: '1px dashed #eee' }}>
+            No outstanding balances
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
